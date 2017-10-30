@@ -122,13 +122,17 @@ main(int argc, char *argv[])
 	int baselen = oplen+id2len;
 	char *outfnbase = malloc(baselen+2);
 	char *outfn = malloc(baselen+10);
+	char *mailsfn = malloc(oplen+10);
 	memcpy(outfnbase, outpath, oplen);
+	memcpy(mailsfn, outpath, oplen);
 	if (outpath[oplen-1]=='/') {
 		strcpy(outfnbase+oplen, _id2);
+		strcat(mailsfn, "mails");
 	} else {
 		outfnbase[oplen] = '/';
 		strcpy(outfnbase+oplen+1, _id2);
 		baselen++;
+		strcat(mailsfn, "/mails");
 	}
 
 	if ((id1len%8) || (id2len%8)) {
@@ -166,6 +170,9 @@ main(int argc, char *argv[])
 	long pubpktlen = info.hdrlen + info.pktlen;
 	printf("pubkey offset: %lx, size: %ld\n", puboffset, pubpktlen);
 
+	FILE *fmails = fopen(mailsfn, "w");
+	fputs("MAILS=(\n", fmails);
+
 	int uidcount = 0;
 	long uidoffset = offset;
 	while (uidoffset<fsize) {
@@ -174,8 +181,11 @@ main(int argc, char *argv[])
 			long uidlen = info.hdrlen+info.pktlen;
 			printf("uid found, offset: %lx, size: %ld\n",
 					 uidoffset, uidlen);
+
 			char *mail = getmailfromuid(addr+uidoffset);
 			printf("email address: %s\n", mail);
+			fprintf(fmails, "  %s\n", mail);
+
 			sprintf(outfn, "%s.%02d", outfnbase, uidcount);
 			FILE *fp = fopen(outfn, "wb");
 			fwrite(addr+puboffset, 1, pubpktlen, fp);
@@ -232,4 +242,6 @@ main(int argc, char *argv[])
 
 		uidoffset += info.hdrlen+info.pktlen;
 	}
+	fputs(")\n", fmails);
+	fclose(fmails);
 }
