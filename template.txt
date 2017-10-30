@@ -1,0 +1,2 @@
+Your OpenPGP key is signed. Please import the following with `gpg --import`.
+
