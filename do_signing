@@ -21,26 +21,33 @@ TEMPDIR="$(mktemp -d)"
 MYKEY="$1"
 KEYTOSIGN="${2/0[xX]}"
 
+cd "$TEMPDIR"
 echo "Temporary files saved at $TEMPDIR"
 
 # first, sign the key
 gpg --sign-with "$MYKEY" --sign-key "$KEYTOSIGN"
-gpg --export "$KEYTOSIGN" > "$TEMPDIR/$KEYTOSIGN.pub"
+gpg --export "$KEYTOSIGN" > "$KEYTOSIGN.pub"
 
 # then extract all the uid
-mkdir "$TEMPDIR/uid"
-extract_key "$TEMPDIR/$KEYTOSIGN.pub" "$MYKEY" "$KEYTOSIGN" "$TEMPDIR/uid"
+mkdir uid
+extract_key "$TEMPDIR/$KEYTOSIGN.pub" "$MYKEY" "$KEYTOSIGN" uid
 
 # encrypt them, also encrypt to myself, then send it
 
-source "$TEMPDIR/uid/mails"
+source uid/mails
 
 for i in $(seq 0 $((${#MAILS[@]}-1)))
 do
-   FILENAME=$(printf "$TEMPDIR/uid/$KEYTOSIGN.%02d" $i)
-   gpg --enarmor "$FILENAME"
-   echo "sending mail to ${MAILS[$i]}"
-   cat template.txt "$FILENAME.asc" | \
-       gpg --armor --recipient "$MYKEY" --recipient "$KEYTOSIGN" --encrypt | \
-       msmtp ${MAILS[$i]}
+	FILENAME=$(printf "uid/$KEYTOSIGN.%02d" $i)
+	cat "$FILENAME" >> "mail-${MAILS[$i]}"
+done
+
+for mailfile in mail-*
+do
+	MAIL="${mailfile/mail-}"
+	gpg --enarmor "$mailfile"
+	echo "sending mail to $MAIL"
+	cat template.txt "$mailfile.asc" | \
+		gpg --armor --recipient "$MYKEY" --recipient "$KEYTOSIGN" --encrypt | \
+		msmtp ${MAILS[$i]}
 done
