@@ -88,6 +88,13 @@ getmailfromuid(const unsigned char *buffer)
 	return mail;
 }
 
+static inline int
+cmp_issuer(unsigned char id[], int idlen, unsigned char issuer[])
+{
+	return (idlen >= 8 && memcmp(id+idlen-8, issuer, 8)==0) ||
+		(memcmp(id, issuer+8-idlen, idlen)==0);
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -201,34 +208,35 @@ main(int argc, char *argv[])
 					break;
 				siginfo sigdata;
 				parse_sigpkt(addr+sigoffset, &sigdata);
-				printf("signature found, type is 0x%hhx, issuer ", sigdata.sigtype);
-				for (int i=0; i<8; i++)
-					printf("%02hhx", sigdata.issuer[i]);
-				if (id1len<8 && memcmp(id1, sigdata.issuer+8-id1len, id1len)==0) {
-					printf(" (signer)");
-					do_write = 1;
-				}
-				if (id2len<8 && memcmp(id2, sigdata.issuer+8-id2len, id2len)==0) {
-					printf(" (signee)");
-					do_write = 1;
-				}
+				printf("signature found, type is 0x%hhx", sigdata.sigtype);
 
 				if (sigdata.has_fpr) {
 					printf(", fpr ");
 					for (int i=0; i<20; i++)
 						printf("%02hhx", sigdata.issuer_fpr[i]);
-					/* TODO: if key id matches but fingerprint doesn't match,
-						we shouldn't write this signature packet
-					*/
-					if (id1len<8 && memcmp(id1, sigdata.issuer_fpr+20-id1len, id1len)==0) {
+
+					if (memcmp(id1, sigdata.issuer_fpr+20-id1len, id1len)==0) {
 						printf(" (signer)");
 						do_write = 1;
 					}
-					if (id2len<8 && memcmp(id2, sigdata.issuer_fpr+20-id2len, id2len)==0) {
+					if (memcmp(id2, sigdata.issuer_fpr+20-id2len, id2len)==0) {
+						printf(" (signee)");
+						do_write = 1;
+					}
+				} else { /* no fingerprint, check key id */
+					printf(", issuer ");
+					for (int i=0; i<8; i++)
+						printf("%02hhx", sigdata.issuer[i]);
+					if (cmp_issuer(id1, id1len, sigdata.issuer)) {
+						printf(" (signer)");
+						do_write = 1;
+					}
+					if (cmp_issuer(id2, id2len, sigdata.issuer)) {
 						printf(" (signee)");
 						do_write = 1;
 					}
 				}
+
 				puts("");
 				if (do_write)
 					fwrite(addr+sigoffset, 1, info.hdrlen+info.pktlen, fp);
