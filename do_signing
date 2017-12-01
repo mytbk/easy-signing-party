@@ -18,6 +18,7 @@
 # usage: do_signing <yourkeyid> <keyid>
 
 TEMPDIR="$(mktemp -d)"
+TEMPLATE="$(realpath template.txt)"
 MYKEY="$1"
 KEYTOSIGN="${2/0[xX]}"
 
@@ -34,7 +35,7 @@ extract_key "$TEMPDIR/$KEYTOSIGN.pub" "$MYKEY" "$KEYTOSIGN" uid
 
 # encrypt them, also encrypt to myself, then send it
 
-source uid/mails
+source ./uid/mails
 
 for i in $(seq 0 $((${#MAILS[@]}-1)))
 do
@@ -44,10 +45,10 @@ done
 
 for mailfile in mail-*
 do
-	MAIL="${mailfile/mail-}"
+	_MAIL="${mailfile/mail-}"
 	gpg --enarmor "$mailfile"
-	echo "sending mail to $MAIL"
-	cat template.txt "$mailfile.asc" | \
+	echo "sending mail to $_MAIL"
+	cat "$TEMPLATE" "$mailfile.asc" | \
 		gpg --armor --recipient "$MYKEY" --recipient "$KEYTOSIGN" --encrypt | \
-		msmtp ${MAILS[$i]}
+		msmtp ${_MAIL}
 done
