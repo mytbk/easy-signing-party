@@ -17,9 +17,11 @@
  */
 
 #include "packet.h"
+#include <stdlib.h>
 
 void get_packet_info(const unsigned char *buffer, packet_info *pkt)
 {
+	pkt->data = buffer;
 	pkt->tag = (buffer[0]>>2)&0xf;
 	unsigned char ltype = (buffer[0])&0x3;
 
@@ -40,4 +42,30 @@ void get_packet_info(const unsigned char *buffer, packet_info *pkt)
 		break;
 		/* not supported */
 	}
+}
+
+packet_info *
+get_all_packets(const unsigned char *buffer, unsigned long bufsz, int *npkts)
+{
+	int _n = 0;
+	size_t offs = 0;
+	packet_info pkt;
+	packet_info *pkts;
+
+	while (offs < bufsz) {
+		get_packet_info(buffer + offs, &pkt);
+		offs += pkt.pktlen + pkt.hdrlen;
+		_n++;
+	}
+
+	*npkts = _n;
+	pkts = (packet_info *)malloc(sizeof(packet_info)*_n);
+	offs = 0;
+	_n = 0;
+	while (offs < bufsz) {
+		get_packet_info(buffer + offs, &pkts[_n]);
+		offs += pkts[_n].pktlen + pkts[_n].hdrlen;
+		_n++;
+	}
+	return pkts;
 }

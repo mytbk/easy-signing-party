@@ -23,6 +23,7 @@ typedef struct
 	unsigned long pktlen; /* length excluding packet header */
 	unsigned int hdrlen;
 	unsigned char tag;
+	const unsigned char *data;
 } packet_info;
 
 #define SIGPKT 2
@@ -30,3 +31,5 @@ typedef struct
 #define UIDPKT 13
 
 void get_packet_info(const unsigned char *buffer, packet_info *pkt);
+packet_info * get_all_packets(const unsigned char *buffer,
+  unsigned long bufsz, int *npkts);
