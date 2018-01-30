@@ -184,7 +184,6 @@ main(int argc, char *argv[])
 			 pubpktlen);
 
 	FILE *fmails = fopen(mailsfn, "w");
-	fputs("MAILS=(\n", fmails);
 
 	int uidcount = 0;
 	int uididx = pubidx + 1;
@@ -194,10 +193,12 @@ main(int argc, char *argv[])
 			long uidlen = u->hdrlen + u->pktlen;
 			printf("uid found, offset: %lx, size: %ld\n",
 					 u->data - addr, uidlen);
+			sprintf(outfn, "%s.%02d", outfnbase, uidcount);
+
 			char *mail = getmailfromuid(u->data);
 			printf("email address: %s\n", mail);
-			fprintf(fmails, "  %s\n", mail);
-			sprintf(outfn, "%s.%02d", outfnbase, uidcount);
+			fprintf(fmails, "cat %s >> mail-%s\n", outfn, mail);
+
 			FILE *fp = fopen(outfn, "wb");
 			fwrite(pubkey_pkt->data, 1, pubpktlen, fp);
 			fwrite(u->data, 1, uidlen, fp);
@@ -254,6 +255,5 @@ main(int argc, char *argv[])
 		}
 	} /* while (uididx < npackets) */
 
-	fputs(")\n", fmails);
 	fclose(fmails);
 }

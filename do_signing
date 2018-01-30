@@ -37,12 +37,6 @@ extract_key "$TEMPDIR/$KEYTOSIGN.pub" "$MYKEY" "$KEYTOSIGN" uid
 
 source ./uid/mails
 
-for i in $(seq 0 $((${#MAILS[@]}-1)))
-do
-	FILENAME=$(printf "uid/$KEYTOSIGN.%02d" $i)
-	cat "$FILENAME" >> "mail-${MAILS[$i]}"
-done
-
 for mailfile in mail-*
 do
 	_MAIL="${mailfile/mail-}"
