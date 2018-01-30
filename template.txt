@@ -1,2 +1,2 @@
-Your OpenPGP key is signed. Please import the following with `gpg --import`.
+Your OpenPGP key is signed. Please import the following with `cat | gpg --dearmor | gpg --import`.
 
