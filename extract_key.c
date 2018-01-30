@@ -54,14 +54,33 @@ hexvalue(char c)
 	return -1;
 }
 
-static void
+static int
 str2id(const char *s, unsigned char *_id)
 {
+	if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+		s += 2;
+
+	const char *start = s;
 	while (*s) {
 		*_id = (hexvalue(s[0])<<4) | hexvalue(s[1]);
 		_id++;
 		s += 2;
 	}
+	return (s-start)/2;
+}
+
+static void
+id2str(unsigned char _id[], int len, char *s)
+{
+	static const char *cmap = "0123456789abcdef";
+
+	int i;
+	for (i = 0; i < len; i++) {
+		s[0] = cmap[(_id[i] >> 4) & 0xf];
+		s[1] = cmap[_id[i] & 0xf];
+		s += 2;
+	}
+	*s = 0;
 }
 
 static char *
@@ -108,59 +127,47 @@ main(int argc, char *argv[])
 	long fsize;
 	unsigned char *addr = mmapopen(fn, &fsize);
 
-	const char *_id1, *_id2;
 	unsigned char id1[20], id2[20];
+	char idstr[41];
 	int id1len, id2len;
 
-	if (argv[2][0]=='0' && (argv[2][1]=='x' || argv[2][1]=='X'))
-		_id1 = argv[2]+2;
-	else
-		_id1 = argv[2];
+	id1len = str2id(argv[2], id1);
+	id2len = str2id(argv[3], id2);
 
-	if (argv[3][0]=='0' && (argv[3][1]=='x' || argv[3][1]=='X'))
-		_id2 = argv[3]+2;
-	else
-		_id2 = argv[3];
+	if ((id1len%4) || (id2len%4)) {
+		puts("the hex key id/fingerprint length should be multiple of 8.\n");
+		return 1;
+	}
+	if (id1len>20 || id2len>20) {
+		puts("key id/fingerprint too long.\n");
+		return 1;
+	}
 
-	id1len = strlen(_id1);
-	id2len = strlen(_id2);
+	printf("id1: ");
+	id2str(id1, id1len, idstr);
+	printf("%s", idstr);
+	printf(", id2: ");
+	id2str(id2, id2len, idstr);
+	printf("%s\n", idstr);
+
+	/* idstr is now id2 */
 
 	int oplen = strlen(outpath);
-	int baselen = oplen+id2len;
+	int baselen = oplen+id2len*2;
 	char *outfnbase = malloc(baselen+2);
 	char *outfn = malloc(baselen+10);
 	char *mailsfn = malloc(oplen+10);
 	memcpy(outfnbase, outpath, oplen);
 	memcpy(mailsfn, outpath, oplen);
 	if (outpath[oplen-1]=='/') {
-		strcpy(outfnbase+oplen, _id2);
+		strcpy(outfnbase+oplen, idstr);
 		strcat(mailsfn, "mails");
 	} else {
 		outfnbase[oplen] = '/';
-		strcpy(outfnbase+oplen+1, _id2);
+		strcpy(outfnbase+oplen+1, idstr);
 		baselen++;
 		strcat(mailsfn, "/mails");
 	}
-
-	if ((id1len%8) || (id2len%8)) {
-		puts("the hex key id/fingerprint length should be multiple of 8.\n");
-		return 1;
-	}
-	if (id1len>40 || id2len>40) {
-		puts("key id/fingerprint too long.\n");
-		return 1;
-	}
-	str2id(_id1, id1);
-	str2id(_id2, id2);
-	id1len /= 2;
-	id2len /= 2;
-	printf("id1: ");
-	for (int i=0; i<id1len; i++)
-		printf("%02hhx", id1[i]);
-	printf(", id2: ");
-	for (int i=0; i<id2len; i++)
-		printf("%02hhx", id2[i]);
-	puts("");
 
 	int npackets;
 	packet_info *all_packets = get_all_packets(addr, fsize, &npackets);
