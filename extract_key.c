@@ -162,52 +162,49 @@ main(int argc, char *argv[])
 		printf("%02hhx", id2[i]);
 	puts("");
 
-	long offset = 0;
-	packet_info info;
+	int npackets;
+	packet_info *all_packets = get_all_packets(addr, fsize, &npackets);
+	int pubidx = 0;
+	packet_info *pubkey_pkt;
+	long pubpktlen;
+	while (pubidx < npackets && all_packets[pubidx].tag != PUBKEY)
+		pubidx++;
 
-	while (offset<fsize) {
-		get_packet_info(addr+offset, &info);
-		if (info.tag == PUBKEY)
-			break;
+	pubkey_pkt = all_packets + pubidx;
+	pubpktlen = pubkey_pkt->pktlen + pubkey_pkt->hdrlen;
 
-		offset += info.hdrlen + info.pktlen;
-	}
-
-	long puboffset = offset;
-	long pubpktlen = info.hdrlen + info.pktlen;
-	printf("pubkey offset: %lx, size: %ld\n", puboffset, pubpktlen);
+	printf("pubkey offset: 0x%lx, size: %ld\n", pubkey_pkt->data - addr,
+			 pubpktlen);
 
 	FILE *fmails = fopen(mailsfn, "w");
 	fputs("MAILS=(\n", fmails);
 
 	int uidcount = 0;
-	long uidoffset = offset;
-	while (uidoffset<fsize) {
-		get_packet_info(addr+uidoffset, &info);
-		if (info.tag == UIDPKT) {
-			long uidlen = info.hdrlen+info.pktlen;
+	int uididx = pubidx + 1;
+	while (uididx < npackets) {
+		if (all_packets[uididx].tag == UIDPKT) {
+			packet_info *u = &all_packets[uididx];
+			long uidlen = u->hdrlen + u->pktlen;
 			printf("uid found, offset: %lx, size: %ld\n",
-					 uidoffset, uidlen);
-
-			char *mail = getmailfromuid(addr+uidoffset);
+					 u->data - addr, uidlen);
+			char *mail = getmailfromuid(u->data);
 			printf("email address: %s\n", mail);
 			fprintf(fmails, "  %s\n", mail);
-
 			sprintf(outfn, "%s.%02d", outfnbase, uidcount);
 			FILE *fp = fopen(outfn, "wb");
-			fwrite(addr+puboffset, 1, pubpktlen, fp);
-			fwrite(addr+uidoffset, 1, uidlen, fp);
+			fwrite(pubkey_pkt->data, 1, pubpktlen, fp);
+			fwrite(u->data, 1, uidlen, fp);
 			uidcount++;
 
 			/* find signature packet, sig type 0x10 to 0x13 */
-			long sigoffset = uidoffset+info.hdrlen+info.pktlen;
-			while (sigoffset<fsize) {
+			long sigidx = uididx + 1;
+			while (sigidx < npackets) {
 				int do_write = 0;
-				get_packet_info(addr+sigoffset, &info);
-				if (info.tag != SIGPKT)
+				if (all_packets[sigidx].tag != SIGPKT)
 					break;
 				siginfo sigdata;
-				parse_sigpkt(addr+sigoffset, &sigdata);
+				long sigpktlen = all_packets[sigidx].pktlen + all_packets[sigidx].hdrlen;
+				parse_sigpkt(all_packets[sigidx].data, &sigdata);
 				printf("signature found, type is 0x%hhx", sigdata.sigtype);
 
 				if (sigdata.has_fpr) {
@@ -239,17 +236,17 @@ main(int argc, char *argv[])
 
 				puts("");
 				if (do_write)
-					fwrite(addr+sigoffset, 1, info.hdrlen+info.pktlen, fp);
+					fwrite(all_packets[sigidx].data, 1, sigpktlen, fp);
 
-				sigoffset += info.hdrlen + info.pktlen;
+				sigidx++;
 			}
-			uidoffset = sigoffset;
+			uididx = sigidx;
 			fclose(fp);
-			continue;
+		} else { /* if (all_packets[uididx].tag == UIDPKT) */
+			uididx ++;
 		}
+	} /* while (uididx < npackets) */
 
-		uidoffset += info.hdrlen+info.pktlen;
-	}
 	fputs(")\n", fmails);
 	fclose(fmails);
 }
