@@ -88,11 +88,11 @@ parse_subpacket(const uint8_t *buff, siginfo *pgpdata)
 }
 
 int
-parse_sigpkt(uint8_t *buffer, siginfo *pgpdata)
+parse_sigpkt(const uint8_t *buffer, siginfo *pgpdata)
 {
 	uint8_t PTag = buffer[0];
 	uint8_t packettag = 0;
-	uint8_t *parse_buf = buffer;
+	const uint8_t *parse_buf = buffer;
 	// uint32_t packetlen = 0;
 	int hashlen;
 	int unhashlen;

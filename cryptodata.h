@@ -65,7 +65,7 @@ enum HashAlgo {
 
 int parse_pubkey(uint8_t *buff, struct RSA_pubkey *rsa_info);
 int find_pubkey(uint8_t *buff, int bufflen, struct RSA_pubkey *rsa_info, const uint8_t *keyid);
-int parse_sigpkt(uint8_t *buffer, siginfo *pgpdata);
+int parse_sigpkt(const uint8_t *buffer, siginfo *pgpdata);
 /* verify RSA signature */
 int sigverify(
 	const uint8_t *sigdata, uint32_t siglen_bytes,
